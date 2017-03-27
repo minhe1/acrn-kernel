@@ -233,6 +233,8 @@ intel_virt_detect_pch(const struct drm_i915_private *dev_priv)
 		id = INTEL_PCH_SPT_DEVICE_ID_TYPE;
 	else if (IS_COFFEELAKE(dev_priv) || IS_CANNONLAKE(dev_priv))
 		id = INTEL_PCH_CNP_DEVICE_ID_TYPE;
+	else if (IS_BROXTON(dev_priv))
+		id = 0;
 
 	if (id)
 		DRM_DEBUG_KMS("Assuming PCH ID %04x\n", id);
