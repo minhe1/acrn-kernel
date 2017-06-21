@@ -9927,4 +9927,31 @@ enum skl_power_gate {
 						 _ICL_PHY_MISC_B)
 #define  ICL_PHY_MISC_DE_IO_COMP_PWR_DOWN	(1 << 23)
 
+/* GVT has special read process from some MMIO register,
+ * which so that should be trapped to GVT to make a
+ * complete emulation. Such MMIO is not too much, now using
+ * a static list to cover them.
+ */
+static inline bool in_mmio_read_trap_list(u32 reg)
+{
+	if (unlikely(reg >= PCH_GMBUS0.reg && reg <= PCH_GMBUS5.reg))
+		return true;
+
+	if (unlikely(reg == RING_TIMESTAMP(RENDER_RING_BASE).reg ||
+		reg == RING_TIMESTAMP(BLT_RING_BASE).reg ||
+		reg == RING_TIMESTAMP(GEN6_BSD_RING_BASE).reg ||
+		reg == RING_TIMESTAMP(VEBOX_RING_BASE).reg ||
+		reg == RING_TIMESTAMP(GEN8_BSD2_RING_BASE).reg ||
+		reg == RING_TIMESTAMP_UDW(RENDER_RING_BASE).reg ||
+		reg == RING_TIMESTAMP_UDW(BLT_RING_BASE).reg ||
+		reg == RING_TIMESTAMP_UDW(GEN6_BSD_RING_BASE).reg ||
+		reg == RING_TIMESTAMP_UDW(VEBOX_RING_BASE).reg))
+		return true;
+
+	if (unlikely(reg == SBI_DATA.reg || reg == 0x6c060 || reg == 0x206c))
+		return true;
+
+	return false;
+}
+
 #endif /* _I915_REG_H_ */
