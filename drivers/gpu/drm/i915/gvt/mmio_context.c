@@ -574,7 +574,8 @@ void intel_gvt_init_engine_mmio_context(struct intel_gvt *gvt)
 {
 	struct engine_mmio *mmio;
 
-	if (IS_SKYLAKE(gvt->dev_priv) || IS_KABYLAKE(gvt->dev_priv))
+	if (IS_SKYLAKE(gvt->dev_priv) || IS_KABYLAKE(gvt->dev_priv)
+		||IS_BROXTON(gvt->dev_priv))
 		gvt->engine_mmio_list.mmio = gen9_engine_mmio_list;
 	else
 		gvt->engine_mmio_list.mmio = gen8_engine_mmio_list;
@@ -584,6 +585,8 @@ void intel_gvt_init_engine_mmio_context(struct intel_gvt *gvt)
 		if (mmio->in_context) {
 			gvt->engine_mmio_list.ctx_mmio_count[mmio->ring_id]++;
 			intel_gvt_mmio_set_in_ctx(gvt, mmio->reg.reg);
+		}else {
+			intel_gvt_mmio_set_non_context(gvt, mmio->reg.reg);
 		}
 	}
 }
