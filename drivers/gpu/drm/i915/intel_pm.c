@@ -33,6 +33,10 @@
 #include <linux/module.h>
 #include <drm/drm_atomic_helper.h>
 
+#if IS_ENABLED(CONFIG_DRM_I915_GVT)
+#include "gvt.h"
+#endif
+
 /**
  * DOC: RC6
  *
@@ -5127,6 +5131,14 @@ skl_compute_ddb(struct drm_atomic_state *state)
 	int ret, i;
 
 	memcpy(ddb, &dev_priv->wm.skl_hw.ddb, sizeof(*ddb));
+
+#if IS_ENABLED(CONFIG_DRM_I915_GVT)
+	/* In GVT environemnt, we only use the statically allocated ddb */
+	if (dev_priv->gvt) {
+		memcpy(ddb, &dev_priv->gvt->ddb, sizeof(*ddb));
+		return 0;
+	}
+#endif
 
 	for_each_new_intel_crtc_in_state(intel_state, crtc, cstate, i) {
 		ret = skl_allocate_pipe_ddb(cstate, ddb);

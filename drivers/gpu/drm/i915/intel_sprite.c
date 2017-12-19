@@ -41,6 +41,11 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
+#if IS_ENABLED(CONFIG_DRM_I915_GVT)
+#include "gvt.h"
+#endif
+
+
 bool intel_format_is_yuv(u32 format)
 {
 	switch (format) {
@@ -255,6 +260,11 @@ skl_update_plane(struct intel_plane *plane,
 	uint32_t src_h = drm_rect_height(&plane_state->base.src) >> 16;
 	unsigned long irqflags;
 
+#if IS_ENABLED(CONFIG_DRM_I915_GVT)
+	if (dev_priv->gvt &&
+			dev_priv->gvt->pipe_info[pipe].plane_owner[plane_id])
+		return;
+#endif
 	/* Sizes are 0 based */
 	src_w--;
 	src_h--;
@@ -315,6 +325,12 @@ skl_disable_plane(struct intel_plane *plane, struct intel_crtc *crtc)
 	enum plane_id plane_id = plane->id;
 	enum pipe pipe = plane->pipe;
 	unsigned long irqflags;
+
+#if IS_ENABLED(CONFIG_DRM_I915_GVT)
+	if (dev_priv->gvt &&
+			dev_priv->gvt->pipe_info[pipe].plane_owner[plane_id])
+		return;
+#endif
 
 	spin_lock_irqsave(&dev_priv->uncore.lock, irqflags);
 
