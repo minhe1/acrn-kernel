@@ -382,26 +382,28 @@ void intel_gvt_check_vblank_emulation(struct intel_gvt *gvt)
 	struct intel_gvt_irq *irq = &gvt->irq;
 	struct intel_vgpu *vgpu;
 	int pipe, id;
+	int found = false;
 
-	if (WARN_ON(!mutex_is_locked(&gvt->lock)))
-		return;
-
+	mutex_lock(&gvt->lock);
 	for_each_active_vgpu(gvt, vgpu, id) {
 		for (pipe = 0; pipe < I915_MAX_PIPES; pipe++) {
-			if (pipe_is_enabled(vgpu, pipe))
-				goto out;
+			if (pipe_is_enabled(vgpu, pipe)) {
+				found = true;
+				break;
+			}
 		}
+		if (found)
+			break;
 	}
 
 	/* all the pipes are disabled */
-	hrtimer_cancel(&irq->vblank_timer.timer);
-	return;
-
-out:
-	hrtimer_start(&irq->vblank_timer.timer,
-		ktime_add_ns(ktime_get(), irq->vblank_timer.period),
-		HRTIMER_MODE_ABS);
-
+	if (!found)
+		hrtimer_cancel(&irq->vblank_timer.timer);
+	else
+		hrtimer_start(&irq->vblank_timer.timer,
+			ktime_add_ns(ktime_get(), irq->vblank_timer.period),
+			HRTIMER_MODE_ABS);
+	mutex_unlock(&gvt->lock);
 }
 
 static void emulate_vblank_on_pipe(struct intel_vgpu *vgpu, int pipe)
@@ -438,8 +440,13 @@ static void emulate_vblank(struct intel_vgpu *vgpu)
 {
 	int pipe;
 
-	for_each_pipe(vgpu->gvt->dev_priv, pipe)
+	mutex_lock(&vgpu->vgpu_lock);
+	for_each_pipe(vgpu->gvt->dev_priv, pipe) {
+		mutex_lock(&vgpu->vgpu_lock);
 		emulate_vblank_on_pipe(vgpu, pipe);
+		mutex_unlock(&vgpu->vgpu_lock);
+	}
+	mutex_unlock(&vgpu->vgpu_lock);
 }
 
 /**
@@ -454,11 +461,10 @@ void intel_gvt_emulate_vblank(struct intel_gvt *gvt)
 	struct intel_vgpu *vgpu;
 	int id;
 
-	if (WARN_ON(!mutex_is_locked(&gvt->lock)))
-		return;
-
+	mutex_lock(&gvt->lock);
 	for_each_active_vgpu(gvt, vgpu, id)
 		emulate_vblank(vgpu);
+	mutex_unlock(&gvt->lock);
 }
 
 static void intel_gvt_vblank_work(struct work_struct *w)
