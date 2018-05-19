@@ -319,6 +319,7 @@ static int gdrst_mmio_write(struct intel_vgpu *vgpu, unsigned int offset,
 		}
 	}
 
+	/* vgpu_lock already hold by emulate mmio r/w */
 	intel_gvt_reset_vgpu_locked(vgpu, false, engine_mask);
 
 	/* sw will wait for the device to ack the reset request */
