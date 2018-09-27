@@ -4804,19 +4804,8 @@ intel_dp_detect(struct drm_connector *connector,
 		      connector->base.id, connector->name);
 
 	/* If full detect is not performed yet, do a full detect */
-	if (!intel_dp->detect_done) {
-		struct drm_crtc *crtc;
-		int ret;
-
-		crtc = connector->state->crtc;
-		if (crtc) {
-			ret = drm_modeset_lock(&crtc->mutex, ctx);
-			if (ret)
-				return ret;
-		}
-
+	if (!intel_dp->detect_done)
 		status = intel_dp_long_pulse(intel_dp->attached_connector, ctx);
-	}
 
 	intel_dp->detect_done = false;
 
