@@ -400,10 +400,9 @@ int intel_gvt_load_firmware(struct intel_gvt *gvt);
 #define gvt_aperture_sz(gvt)	  (gvt->dev_priv->ggtt.mappable_end)
 #define gvt_aperture_pa_base(gvt) (gvt->dev_priv->ggtt.gmadr.start)
 
-//#define gvt_ggtt_gm_sz(gvt)	  (gvt->dev_priv->ggtt.vm.total)
-#define gvt_ggtt_gm_sz(gvt)	 0x100000000ULL
+#define gvt_ggtt_gm_sz(gvt)	  (gvt->dev_priv->ggtt.vm.total)
 #define gvt_ggtt_sz(gvt) \
-	((gvt_ggtt_gm_sz(gvt) >> PAGE_SHIFT) << 3)
+	((gvt->dev_priv->ggtt.vm.total >> PAGE_SHIFT) << 3)
 #define gvt_hidden_sz(gvt)	  (gvt_ggtt_gm_sz(gvt) - gvt_aperture_sz(gvt))
 
 #define gvt_aperture_gmadr_base(gvt) (0)
