@@ -3273,6 +3273,9 @@ static void i915_clear_error_registers(struct drm_i915_private *dev_priv)
 	}
 }
 
+extern void intel_gvt_dump_current_workload(struct drm_i915_private *dev_priv, int engine);
+
+
 /**
  * i915_handle_error - handle a gpu error
  * @dev_priv: i915 device private
@@ -3328,6 +3331,7 @@ void i915_handle_error(struct drm_i915_private *dev_priv,
 	 */
 	if (intel_has_reset_engine(dev_priv)) {
 		for_each_engine_masked(engine, dev_priv, engine_mask, tmp) {
+			intel_gvt_dump_current_workload(dev_priv, engine->id);
 			BUILD_BUG_ON(I915_RESET_MODESET >= I915_RESET_ENGINE);
 			if (test_and_set_bit(I915_RESET_ENGINE + engine->id,
 					     &dev_priv->gpu_error.flags))

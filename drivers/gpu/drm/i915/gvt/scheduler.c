@@ -1562,3 +1562,85 @@ void intel_vgpu_queue_workload(struct intel_vgpu_workload *workload)
 	intel_gvt_kick_schedule(workload->vgpu->gvt);
 	wake_up(&workload->vgpu->gvt->scheduler.waitq[workload->ring_id]);
 }
+
+
+/* this function will dump a page around the head pointer */
+void dump_buffer(struct intel_vgpu_mm *mm, u64 head, u64 len)
+{
+	u64 gpa = 0;
+	u32 *buffer = kmalloc(I915_GTT_PAGE_SIZE, GFP_KERNEL);
+	u64 gma = head & ~(I915_GTT_PAGE_SIZE - 1);
+	u32 i = 0;
+
+	gpa = intel_vgpu_gma_to_gpa(mm, gma);
+	if ((mm->type == INTEL_GVT_MM_PPGTT) &&
+			(VGPU_PVMMIO(mm->vgpu) & PVMMIO_PPGTT_UPDATE)) {
+		memcpy(buffer, phys_to_virt(gpa), I915_GTT_PAGE_SIZE);
+	}
+	else {
+		intel_gvt_hypervisor_read_gpa(mm->vgpu, gpa, buffer, I915_GTT_PAGE_SIZE);
+	}
+	printk("Starting dumping gma 0x%llx gpa 0x%llx....\n", gma, gpa);
+	for (i = 0; i < I915_GTT_PAGE_SIZE/4; i += 4, gma += 0x10) {
+		printk("0x%08llx: %08x %08x %08x %08x\n",
+				gma, *(buffer + i), *(buffer + i + 1),
+				*(buffer + i + 2), *(buffer + i + 3));
+	}
+
+	kfree(buffer);
+}
+
+void intel_gvt_dump_current_workload(struct drm_i915_private *dev_priv, int
+		engine)
+{
+	struct intel_gvt *gvt= dev_priv->gvt;
+	struct intel_gvt_workload_scheduler *scheduler = NULL;
+	struct intel_vgpu_workload *workload = NULL;
+	u32 base;
+	u32 bb_state;
+	u64 bb_start, bb_head;
+	if (!gvt)
+		return;
+
+	scheduler = &gvt->scheduler;
+	workload = scheduler->current_workload[engine];
+	if (!workload)
+		return;
+
+	base = workload->req->engine->mmio_base;
+
+	printk("Ring %d hung, starting to dump current workload\n", engine);
+	printk("Current workload %p\n", workload);
+	printk("Current context id 0x%x\n", workload->ctx_desc.context_id);
+	printk("Ring Buffer Start 0x%lx, Len: 0x%lx, Head 0x%lx, Tail 0x%lx\n",
+			workload->rb_start, workload->rb_len,
+			workload->rb_head, workload->rb_tail);
+
+	dump_buffer(workload->vgpu->gtt.ggtt_mm, workload->rb_start + workload->rb_head, 0);
+
+	bb_state = I915_READ(RING_BBSTATE(base));
+	bb_head = I915_READ(RING_BBADDR_UDW(base));
+	bb_head &= 0xFFFF;
+	bb_head <<= 32;
+	bb_head |= I915_READ(RING_BBADDR(base));
+
+	bb_start = I915_READ(_MMIO((base) + 0x170));
+	bb_start &= 0xFFFF;
+	bb_start <<= 32;
+	bb_start |= I915_READ(_MMIO((base) + 0x150));
+
+	if ((bb_head & 1) == 0)
+		return;
+
+	printk("Batch buffer MMIO start: 0x%llx ,head: 0x%llx, state: 0x%x\n",
+			bb_start, bb_head, bb_state);
+	if (bb_state & (1 << 5)) {
+		dump_buffer(workload->shadow_mm, bb_start, 0);
+		dump_buffer(workload->shadow_mm, bb_head, 0);
+	}
+	else {
+		dump_buffer(workload->vgpu->gtt.ggtt_mm, bb_start, 0);
+		dump_buffer(workload->vgpu->gtt.ggtt_mm, bb_head, 0);
+	}
+}
+
