@@ -2209,6 +2209,8 @@ static inline int ppgtt_get_next_level_entry(struct intel_vgpu_mm *mm,
 	return 0;
 }
 
+unsigned long pv_intel_vgpu_gma_to_gpa(struct intel_vgpu_mm *mm, unsigned long
+		gma);
 /**
  * intel_vgpu_gma_to_gpa - translate a gma to GPA
  * @mm: mm object. could be a PPGTT or GGTT mm object
@@ -2247,6 +2249,9 @@ unsigned long intel_vgpu_gma_to_gpa(struct intel_vgpu_mm *mm, unsigned long gma)
 
 		trace_gma_translate(vgpu->id, "ggtt", 0, 0, gma, gpa);
 	} else {
+		if (VGPU_PVMMIO(mm->vgpu) & PVMMIO_PPGTT_UPDATE) {
+			return pv_intel_vgpu_gma_to_gpa(mm, gma);
+		}
 		switch (mm->ppgtt_mm.root_entry_type) {
 		case GTT_TYPE_PPGTT_ROOT_L4_ENTRY:
 			ppgtt_get_shadow_root_entry(mm, &e, 0);
@@ -3181,6 +3186,34 @@ static int walk_pml4_range(struct intel_vgpu *vgpu, u64 pml4,
 
 	return ret;
 }
+
+#define kmap_atomic_px(px) kmap_atomic(px_base(px)->page)
+
+unsigned long pv_intel_vgpu_gma_to_gpa(struct intel_vgpu_mm *mm, unsigned long
+		gma)
+{
+	struct i915_hw_ppgtt *ppgtt = mm->ppgtt_mm.ppgtt;
+	unsigned long gpa = INTEL_GVT_INVALID_ADDR;
+	u64 start = gma;
+	u32 pml4e = gen8_pml4e_index(gma);
+	struct i915_pml4 *pml4 = &ppgtt->pml4;
+	struct i915_page_directory_pointer *pdp = pml4->pdps[pml4e];
+	u32 pdpe = gen8_pdpe_index(start);
+	struct i915_page_directory *pd = pdp->page_directory[pdpe];
+	u32 pde = gen8_pde_index(start);
+	struct i915_page_table *pt = pd->page_table[pde];
+
+	u32 pte = gen8_pte_index(start);
+	gen8_pte_t *pt_vaddr;
+
+	pt_vaddr = kmap_atomic_px(pt);
+	gpa = pt_vaddr[pte];
+	kunmap_atomic(pt_vaddr);
+
+	pr_info("pml4e %x pdpe %x pde %x pte %x\n", pml4e, pdpe, pde, pte);
+	return gpa & (~0xFFFULL);
+}
+
 
 int intel_vgpu_g2v_pv_ppgtt_insert_4lvl(struct intel_vgpu *vgpu,
 		int page_table_level)
