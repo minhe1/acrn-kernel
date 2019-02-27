@@ -479,8 +479,11 @@ static void intel_gvt_vblank_work(struct work_struct *w)
 	int id;
 
 	mutex_lock(&gvt->lock);
-	for_each_active_vgpu(gvt, vgpu, id)
+	for_each_active_vgpu(gvt, vgpu, id) {
 		emulate_vblank_on_pipe(vgpu, pipe_info->pipe_num);
+		trace_printk("injected vblank to vgpu %d on pipe %d", vgpu->id,
+				pipe_info->pipe_num);
+	}
 	mutex_unlock(&gvt->lock);
 }
 
