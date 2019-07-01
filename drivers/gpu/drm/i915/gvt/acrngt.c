@@ -136,6 +136,9 @@ void acrngt_instance_destroy(struct intel_vgpu *vgpu)
 	if (vgpu) {
 		info = (struct acrngt_hvm_dev *)vgpu->handle;
 
+		mutex_lock(&gvt->lock);
+		vgpu->vgpu_priv = NULL;
+		mutex_unlock(&gvt->lock);
 		if (info && info->emulation_thread != NULL) {
 			kthread_stop(info->emulation_thread);
 			info->emulation_thread = NULL;
